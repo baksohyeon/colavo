@@ -1,35 +1,35 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
+import { CustomConfigService } from '../../config/services/config.service';
 import { CustomLoggerService } from './custom-logger.service';
 import { LogLevel } from '../interfaces/logger.interface';
 
 describe('CustomLoggerService', () => {
     let service: CustomLoggerService;
-    let configService: ConfigService;
+    let configService: CustomConfigService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 CustomLoggerService,
                 {
-                    provide: ConfigService,
+                    provide: CustomConfigService,
                     useValue: {
-                        get: jest.fn((key: string, defaultValue?: any) => {
-                            const config: Record<string, any> = {
-                                LOG_LEVEL: LogLevel.DEBUG,
-                                LOG_ENABLE_CONSOLE: true,
-                                LOG_ENABLE_FILE: false, // Disable file logging in tests
-                                LOG_FORMAT: 'simple',
-                            };
-                            return config[key] ?? defaultValue;
-                        }),
+                        logger: {
+                            level: LogLevel.DEBUG,
+                            enableConsole: true,
+                            enableFile: false, // Disable file logging in tests
+                            filePath: 'logs/application-%DATE%.log',
+                            maxFileSize: '20m',
+                            maxFiles: '14d',
+                            format: 'simple',
+                        },
                     },
                 },
             ],
         }).compile();
 
         service = module.get<CustomLoggerService>(CustomLoggerService);
-        configService = module.get<ConfigService>(ConfigService);
+        configService = module.get<CustomConfigService>(CustomConfigService);
     });
 
     it('should be defined', () => {
@@ -176,9 +176,10 @@ describe('CustomLoggerService', () => {
 
     describe('configuration', () => {
         it('should load configuration from ConfigService', () => {
-            expect(configService.get).toHaveBeenCalledWith('LOG_LEVEL');
-            expect(configService.get).toHaveBeenCalledWith('LOG_ENABLE_CONSOLE', true);
-            expect(configService.get).toHaveBeenCalledWith('LOG_ENABLE_FILE', true);
+            expect(configService.logger).toBeDefined();
+            expect(configService.logger.level).toBe(LogLevel.DEBUG);
+            expect(configService.logger.enableConsole).toBe(true);
+            expect(configService.logger.enableFile).toBe(false);
         });
     });
 }); 

@@ -1,7 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { TimeSlotsService } from '../services/time-slots.service';
-import { GetTimeSlotsDto } from '../dto/get-time-slots.dto';
-import { DayTimetable } from '../models/interfaces';
+import { GetTimeSlotsDto } from './dto/get-time-slots.dto';
+import { IDayTimetable } from '../../models/interfaces';
+import { TimeSlotsService } from '@/modules/time-slots/time-slots.service';
 
 @Controller()
 export class TimeSlotsController {
@@ -14,7 +14,7 @@ export class TimeSlotsController {
      */
     @Post('getTimeSlots')
     @HttpCode(HttpStatus.OK)
-    async getTimeSlots(@Body() dto: GetTimeSlotsDto): Promise<DayTimetable[]> {
+    async getTimeSlots(@Body() dto: GetTimeSlotsDto): Promise<IDayTimetable[]> {
         return await this.timeSlotsService.getTimeSlots(dto);
     }
 
@@ -22,7 +22,7 @@ export class TimeSlotsController {
      * Test endpoint for smoke testing
      * @returns Test result
      */
-    @Post('admin/test')
+    @Post('health')
     @HttpCode(HttpStatus.OK)
     async adminTest(): Promise<{ status: string; message: string }> {
         return {

@@ -15,7 +15,7 @@
       "@/app/*": ["src/*"],
       "@/core/*": ["src/core/*"],
       "@/modules/*": ["src/modules/*"],
-      "@/dto/*": ["src/dto/*"],
+      "@/dto/*": ["src/modules/time-slots/dto/*"],
       "@/models/*": ["src/models/*"],
       "@/data/*": ["src/data/*"],
       "@/config/*": ["src/core/config/*"],

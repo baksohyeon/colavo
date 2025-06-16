@@ -1,16 +1,33 @@
+import { GetTimeSlotsDto } from '@/modules/time-slots/dto/get-time-slots.dto';
+import { TimeSlotsService } from '@/modules/time-slots/time-slots.service';
+import { CustomLoggerService } from '@/core/logger/services/custom-logger.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TimeSlotsService } from './time-slots.service';
-import { GetTimeSlotsDto } from '../dto/get-time-slots.dto';
 
 describe('TimeSlotsService', () => {
     let service: TimeSlotsService;
+    let logger: CustomLoggerService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [TimeSlotsService],
+            providers: [
+                TimeSlotsService,
+                {
+                    provide: CustomLoggerService,
+                    useValue: {
+                        setContext: jest.fn(),
+                        info: jest.fn(),
+                        debug: jest.fn(),
+                        error: jest.fn(),
+                        warn: jest.fn(),
+                        verbose: jest.fn(),
+                        log: jest.fn(),
+                    },
+                },
+            ],
         }).compile();
 
         service = module.get<TimeSlotsService>(TimeSlotsService);
+        logger = module.get<CustomLoggerService>(CustomLoggerService);
     });
 
     it('should be defined', () => {

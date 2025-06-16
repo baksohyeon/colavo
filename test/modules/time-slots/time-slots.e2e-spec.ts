@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '@/modules/app.module';
 
 describe('Time Slots API (e2e)', () => {
     let app: INestApplication;
@@ -164,10 +164,10 @@ describe('Time Slots API (e2e)', () => {
         });
     });
 
-    describe('POST /admin/test', () => {
+    describe('POST /health', () => {
         it('should return test success message', async () => {
             const response = await request(app.getHttpServer())
-                .post('/admin/test')
+                .post('/health')
                 .expect(200);
 
             expect(response.body).toHaveProperty('status', 'success');
