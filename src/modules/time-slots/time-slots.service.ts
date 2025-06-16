@@ -6,6 +6,8 @@ import { IEvent } from '@/models/interfaces';
 import { toZonedTime, fromZonedTime, format } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 
+// 주어진 과제 명세와 사진 일자 기준으로 현재 일자 지정함
+const TODAY = new Date('2021-09-10')
 
 
 @Injectable()
@@ -58,13 +60,22 @@ export class TimeSlotsService {
             this.logger.debug(`Work hour mode: CONSIDER - Loaded ${workhours.length} work hour entries for time period calculation`);
         }
 
+        // FIXME: 과제 구현사항을 기준으로 "2021년 9월 10일로 처리, 실제 데이터에서는 현재 일자로 변경할 필요 있음
+        const todayInTimezone = toZonedTime(TODAY, timezone_identifier);
+        const todayDateOnly = new Date(todayInTimezone.getFullYear(), todayInTimezone.getMonth(), todayInTimezone.getDate());
+        const todayUTC = fromZonedTime(todayDateOnly, timezone_identifier);
+
         for (let dayIndex = 0; dayIndex < days; dayIndex++) {
             const currentDate = new Date(startDate);
             currentDate.setUTCDate(startDate.getUTCDate() + dayIndex);
 
+            // Calculate day_modifier relative to today
+            const dayDifferenceMs = currentDate.getTime() - todayUTC.getTime();
+            const dayModifier = Math.round(dayDifferenceMs / (24 * 60 * 60 * 1000));
+
             const dayTimetable = this.generateDayTimetableWithTimezone(
                 currentDate,
-                dayIndex,
+                dayModifier,
                 timezone_identifier,
                 service_duration,
                 timeslot_interval,
