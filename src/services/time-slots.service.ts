@@ -1,13 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { GetTimeSlotsDto } from '../dto/get-time-slots.dto';
 import { DayTimetable, Timeslot, Event, Workhour } from '../models/interfaces';
+import { CustomLoggerService } from '../core/logger/services/custom-logger.service';
 
 @Injectable()
 export class TimeSlotsService {
+    constructor(private readonly logger: CustomLoggerService) {
+        this.logger.setContext('TimeSlotsService');
+    }
     /**
      * Generate available time slots based on the request parameters
      */
     async getTimeSlots(dto: GetTimeSlotsDto): Promise<DayTimetable[]> {
+        this.logger.info(
+            `Generating time slots for ${dto.start_day_identifier}, duration: ${dto.service_duration}s, days: ${dto.days || 1}`
+        );
+
         const {
             start_day_identifier,
             timezone_identifier,
@@ -21,9 +29,17 @@ export class TimeSlotsService {
         const dayTimetables: DayTimetable[] = [];
         const startDate = this.parseStartDayIdentifier(start_day_identifier);
 
+        this.logger.debug(
+            `Parsed start date: ${startDate.toISOString()}, timezone: ${timezone_identifier}`
+        );
+
         // Load data files if needed
         const events = is_ignore_schedule ? [] : await this.loadEvents();
         const workhours = is_ignore_workhour ? [] : await this.loadWorkhours();
+
+        this.logger.debug(
+            `Loaded ${events.length} events and ${workhours.length} work hour entries`
+        );
 
         for (let dayIndex = 0; dayIndex < days; dayIndex++) {
             const currentDate = new Date(startDate);
@@ -41,8 +57,13 @@ export class TimeSlotsService {
             );
 
             dayTimetables.push(dayTimetable);
+
+            this.logger.debug(
+                `Generated ${dayTimetable.timeslots.length} time slots for day ${dayIndex + 1}`
+            );
         }
 
+        this.logger.info(`Successfully generated time slots for ${days} day(s)`);
         return dayTimetables;
     }
 
@@ -72,11 +93,16 @@ export class TimeSlotsService {
         const startOfDay = Math.floor(date.getTime() / 1000);
         const weekday = this.getWeekday(date);
 
+        this.logger.debug(
+            `Generating timetable for ${date.toDateString()} (weekday: ${weekday}, modifier: ${dayModifier})`
+        );
+
         // Find work hours for this weekday
         const dayWorkhour = workhours.find(wh => wh.weekday === weekday);
         const isDayOff = dayWorkhour?.is_day_off ?? false;
 
         if (isDayOff && !isIgnoreWorkhour) {
+            this.logger.debug(`Day ${date.toDateString()} is marked as day off`);
             return {
                 start_of_day: startOfDay,
                 day_modifier: dayModifier,
@@ -162,17 +188,23 @@ export class TimeSlotsService {
     }
 
     /**
- * Load events data from JSON file
- */
+     * Load events data from JSON file
+     */
     private async loadEvents(): Promise<Event[]> {
         try {
+            this.logger.debug('Loading events data from JSON file');
             const fs = await import('fs/promises');
             const path = await import('path');
             const filePath = path.join(process.cwd(), 'src', 'data', 'events.json');
             const fileContent = await fs.readFile(filePath, 'utf-8');
-            return JSON.parse(fileContent) as Event[];
+            const events = JSON.parse(fileContent) as Event[];
+            this.logger.debug(`Successfully loaded ${events.length} events`);
+            return events;
         } catch (error) {
-            console.error('Error loading events:', error);
+            this.logger.error(
+                'Error loading events data',
+                error instanceof Error ? error.stack : String(error)
+            );
             return [];
         }
     }
@@ -182,13 +214,19 @@ export class TimeSlotsService {
      */
     private async loadWorkhours(): Promise<Workhour[]> {
         try {
+            this.logger.debug('Loading work hours data from JSON file');
             const fs = await import('fs/promises');
             const path = await import('path');
             const filePath = path.join(process.cwd(), 'src', 'data', 'workhours.json');
             const fileContent = await fs.readFile(filePath, 'utf-8');
-            return JSON.parse(fileContent) as Workhour[];
+            const workhours = JSON.parse(fileContent) as Workhour[];
+            this.logger.debug(`Successfully loaded ${workhours.length} work hour entries`);
+            return workhours;
         } catch (error) {
-            console.error('Error loading work hours:', error);
+            this.logger.error(
+                'Error loading work hours data',
+                error instanceof Error ? error.stack : String(error)
+            );
             return [];
         }
     }
