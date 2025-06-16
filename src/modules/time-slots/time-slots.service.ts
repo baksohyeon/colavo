@@ -192,6 +192,19 @@ export class TimeSlotsService {
             timezoneIdentifier
         );
 
+        // Debug log with human-readable timestamps
+        if (availableTimeslots.length > 0) {
+            this.logger.verbose(`Available timeslots for ${this.formatDateInTimezone(date, timezoneIdentifier)}:`);
+            availableTimeslots.forEach((slot, index) => {
+                const beginTime = new Date(slot.begin_at * 1000).toISOString();
+                const endTime = new Date(slot.end_at * 1000).toISOString();
+                const duration = (slot.end_at - slot.begin_at) / 60; // minutes
+                this.logger.verbose(`  ${index + 1}. ${beginTime.slice(11, 19)} → ${endTime.slice(11, 19)} (${duration}min) [${slot.begin_at}-${slot.end_at}]`);
+            });
+        } else {
+            this.logger.debug(`No available timeslots for ${this.formatDateInTimezone(date, timezoneIdentifier)}`);
+        }
+
         return {
             start_of_day: startOfDayUTC,
             day_modifier: dayModifier,
