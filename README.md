@@ -1,4 +1,5 @@
 # Time Slots Booking API
+> 오늘 일자 기준은 2021-09-10 입니다.
 
 A robust NestJS-based API for generating available time slots for salon booking appointments with comprehensive timezone support and schedule management.
 
