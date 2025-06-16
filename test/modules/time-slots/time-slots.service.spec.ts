@@ -2,6 +2,7 @@ import { GetTimeSlotsDto } from '@/modules/time-slots/dto/get-time-slots.dto';
 import { TimeSlotsService } from '@/modules/time-slots/time-slots.service';
 import { CustomLoggerService } from '@/core/logger/services/custom-logger.service';
 import { Test, TestingModule } from '@nestjs/testing';
+import { fromZonedTime } from 'date-fns-tz';
 
 // Test constants - KST (Korea Standard Time) test dates
 const TEST_DATES = {
@@ -15,10 +16,37 @@ const TEST_DATES = {
     MAY_11_2021: '20210511',  // Tuesday
 } as const;
 
+// Helper function to get UTC timestamp for a date in specific timezone
+const getTimestampForDateInTimezone = (year: number, month: number, day: number, timezone: string): number => {
+    const dateInTimezone = new Date(year, month - 1, day, 0, 0, 0, 0); // month is 1-indexed here
+    const utcDate = fromZonedTime(dateInTimezone, timezone);
+    return Math.floor(utcDate.getTime() / 1000);
+};
+
+// Original UTC-based timestamps (for reference)
 const TEST_TIMESTAMPS_UTC = {
     MAY_9_2021: Math.floor(Date.UTC(2021, 4, 9) / 1000),   // 1620518400
     MAY_10_2021: Math.floor(Date.UTC(2021, 4, 10) / 1000), // 1620604800
     MAY_11_2021: Math.floor(Date.UTC(2021, 4, 11) / 1000), // 1620691200
+} as const;
+
+// Timezone-aware timestamps (what the service actually returns)
+const TEST_TIMESTAMPS_KST = {
+    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.KST_TIMEZONE),   // 2021-05-09 00:00:00 KST
+    MAY_10_2021: getTimestampForDateInTimezone(2021, 5, 10, TEST_DATES.KST_TIMEZONE), // 2021-05-10 00:00:00 KST
+    MAY_11_2021: getTimestampForDateInTimezone(2021, 5, 11, TEST_DATES.KST_TIMEZONE), // 2021-05-11 00:00:00 KST
+} as const;
+
+const TEST_TIMESTAMPS_EST = {
+    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.EST_TIMEZONE),   // 2021-05-09 00:00:00 EST
+} as const;
+
+const TEST_TIMESTAMPS_JST = {
+    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.JST_TIMEZONE),   // 2021-05-09 00:00:00 JST
+} as const;
+
+const TEST_TIMESTAMPS_GMT = {
+    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.GMT_TIMEZONE),   // 2021-05-09 00:00:00 GMT
 } as const;
 
 describe('TimeSlotsService', () => {
@@ -130,7 +158,7 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(1);
                 expect(result[0].day_modifier).toBe(0);
-                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
+                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_9_2021);
             });
 
             it('should handle start_day_identifier for May 10, 2021 (KST) correctly', async () => {
@@ -148,7 +176,7 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(1);
                 expect(result[0].day_modifier).toBe(0);
-                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_10_2021);
+                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_10_2021);
             });
 
             it('should handle start_day_identifier for May 11, 2021 (KST) correctly', async () => {
@@ -166,7 +194,7 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(1);
                 expect(result[0].day_modifier).toBe(0);
-                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_11_2021);
+                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_11_2021);
             });
         });
 
@@ -429,25 +457,25 @@ describe('TimeSlotsService', () => {
 
                 for (let i = 0; i < 5; i++) {
                     expect(result[i].day_modifier).toBe(i);
-                    expect(result[i].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021 + (i * 86400)); // Each day adds 86400 seconds
+                    expect(result[i].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_9_2021 + (i * 86400)); // Each day adds 86400 seconds
                 }
             });
         });
 
         describe('Timezone handling (timezone_identifier)', () => {
             it('should handle different timezone identifiers correctly', async () => {
-                const timezones = [
-                    TEST_DATES.KST_TIMEZONE,  // Asia/Seoul
-                    TEST_DATES.UTC_TIMEZONE,  // UTC
-                    TEST_DATES.EST_TIMEZONE,  // America/New_York
-                    TEST_DATES.GMT_TIMEZONE,  // Europe/London
-                    TEST_DATES.JST_TIMEZONE,  // Asia/Tokyo
+                const timezoneTestCases = [
+                    { timezone: TEST_DATES.KST_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_KST.MAY_9_2021 },  // Asia/Seoul
+                    { timezone: TEST_DATES.UTC_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_UTC.MAY_9_2021 },  // UTC
+                    { timezone: TEST_DATES.EST_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_EST.MAY_9_2021 },  // America/New_York
+                    { timezone: TEST_DATES.GMT_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_GMT.MAY_9_2021 },  // Europe/London
+                    { timezone: TEST_DATES.JST_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_JST.MAY_9_2021 },  // Asia/Tokyo
                 ];
 
-                for (const timezone of timezones) {
+                for (const testCase of timezoneTestCases) {
                     const mockRequest: GetTimeSlotsDto = {
                         start_day_identifier: TEST_DATES.MAY_9_2021,
-                        timezone_identifier: timezone,
+                        timezone_identifier: testCase.timezone,
                         service_duration: 3600,
                         days: 1,
                         timeslot_interval: 1800,
@@ -461,8 +489,8 @@ describe('TimeSlotsService', () => {
                     expect(result.length).toBe(1);
                     expect(result[0]).toHaveProperty('start_of_day');
                     expect(result[0]).toHaveProperty('timeslots');
-                    // All should return the same UTC timestamp since we're using the same date identifier
-                    expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
+                    // Each timezone should return its properly converted timestamp
+                    expect(result[0].start_of_day).toBe(testCase.expectedTimestamp);
                 }
             });
 
@@ -499,7 +527,7 @@ describe('TimeSlotsService', () => {
                 const result = await service.getTimeSlots(mockRequest);
 
                 expect(result.length).toBe(1);
-                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
+                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_EST.MAY_9_2021);
                 expect(result[0].day_modifier).toBe(0);
                 expect(result[0].timeslots.length).toBeGreaterThan(0);
             });
@@ -518,7 +546,7 @@ describe('TimeSlotsService', () => {
                 const result = await service.getTimeSlots(mockRequest);
 
                 expect(result.length).toBe(1);
-                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
+                expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_JST.MAY_9_2021);
                 expect(result[0].day_modifier).toBe(0);
                 expect(result[0].timeslots.length).toBeGreaterThan(0);
             });
@@ -534,23 +562,19 @@ describe('TimeSlotsService', () => {
                     is_ignore_workhour: true,
                 };
 
-                // This should either handle gracefully or throw a meaningful error
-                const result = await service.getTimeSlots(mockRequest);
-
-                // Currently service doesn't validate timezone, so it should still work
-                expect(Array.isArray(result)).toBe(true);
-                expect(result.length).toBe(1);
+                // This should throw a meaningful error due to validation
+                await expect(service.getTimeSlots(mockRequest)).rejects.toThrow('Invalid timezone identifier');
             });
 
             it('should validate timezone format requirements', async () => {
-                const invalidButAcceptedTimezones = [
-                    'GMT+9',        // Non-IANA format but should work
-                    'KST',          // Abbreviation but should work  
-                    'Seoul',        // City name but should work
-                    'Asia/Seoul/Invalid', // Invalid path but should work
+                const invalidTimezones = [
+                    'GMT+9',        // Non-IANA format
+                    'KST',          // Abbreviation
+                    'Seoul',        // City name only
+                    'Asia/Seoul/Invalid', // Invalid path
                 ];
 
-                for (const timezone of invalidButAcceptedTimezones) {
+                for (const timezone of invalidTimezones) {
                     const mockRequest: GetTimeSlotsDto = {
                         start_day_identifier: TEST_DATES.MAY_9_2021,
                         timezone_identifier: timezone,
@@ -561,9 +585,8 @@ describe('TimeSlotsService', () => {
                         is_ignore_workhour: true,
                     };
 
-                    // Service should handle these formats gracefully (with warnings)
-                    const result = await service.getTimeSlots(mockRequest);
-                    expect(Array.isArray(result)).toBe(true);
+                    // These should throw errors due to timezone validation
+                    await expect(service.getTimeSlots(mockRequest)).rejects.toThrow('Invalid timezone identifier');
                 }
             });
 
@@ -590,20 +613,18 @@ describe('TimeSlotsService', () => {
                 }
             });
 
-            it('should maintain consistency across timezones for same date identifier', async () => {
-                const timezones = [
-                    TEST_DATES.KST_TIMEZONE,
-                    TEST_DATES.UTC_TIMEZONE,
-                    TEST_DATES.EST_TIMEZONE,
-                    TEST_DATES.JST_TIMEZONE,
+            it('should handle different timezones correctly for same date identifier', async () => {
+                const timezoneTestCases = [
+                    { timezone: TEST_DATES.KST_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_KST.MAY_9_2021 },
+                    { timezone: TEST_DATES.UTC_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_UTC.MAY_9_2021 },
+                    { timezone: TEST_DATES.EST_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_EST.MAY_9_2021 },
+                    { timezone: TEST_DATES.JST_TIMEZONE, expectedTimestamp: TEST_TIMESTAMPS_JST.MAY_9_2021 },
                 ];
 
-                const results: any[] = [];
-
-                for (const timezone of timezones) {
+                for (const testCase of timezoneTestCases) {
                     const mockRequest: GetTimeSlotsDto = {
                         start_day_identifier: TEST_DATES.MAY_9_2021,
-                        timezone_identifier: timezone,
+                        timezone_identifier: testCase.timezone,
                         service_duration: 3600,
                         days: 1,
                         timeslot_interval: 1800,
@@ -612,21 +633,14 @@ describe('TimeSlotsService', () => {
                     };
 
                     const result = await service.getTimeSlots(mockRequest);
-                    results.push(result[0]);
-                }
 
-                // All results should have the same start_of_day since we're using the same date identifier
-                // and the service currently doesn't apply timezone conversion
-                const firstResult = results[0];
-                results.forEach(result => {
-                    expect(result.start_of_day).toBe(firstResult.start_of_day);
-                    expect(result.day_modifier).toBe(firstResult.day_modifier);
-                });
+                    expect(result[0].start_of_day).toBe(testCase.expectedTimestamp);
+                    expect(result[0].day_modifier).toBe(0);
+                }
             });
 
-            // TODO: These tests demonstrate the current limitation - timezone_identifier is not being utilized
-            it('should note current timezone handling limitation', async () => {
-                // This test documents that timezone_identifier is currently not fully implemented
+            it('should properly implement timezone handling with date-fns-tz', async () => {
+                // This test verifies that timezone_identifier is properly implemented using date-fns-tz
                 const kstRequest: GetTimeSlotsDto = {
                     start_day_identifier: TEST_DATES.MAY_9_2021,
                     timezone_identifier: TEST_DATES.KST_TIMEZONE, // UTC+9
@@ -650,13 +664,13 @@ describe('TimeSlotsService', () => {
                 const kstResult = await service.getTimeSlots(kstRequest);
                 const utcResult = await service.getTimeSlots(utcRequest);
 
-                // Currently both return the same timestamp because timezone is not processed
-                expect(kstResult[0].start_of_day).toBe(utcResult[0].start_of_day);
+                // Different timezones should return different timestamps
+                expect(kstResult[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_9_2021);
+                expect(utcResult[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
+                expect(kstResult[0].start_of_day).not.toBe(utcResult[0].start_of_day);
 
-                // In a fully implemented system:
-                // - KST (UTC+9) would show different times than UTC
-                // - Date boundaries would be different across timezones
-                // - Work hours would be interpreted in the specified timezone
+                // KST is UTC+9, so KST midnight is 9 hours earlier in UTC
+                expect(kstResult[0].start_of_day).toBe(utcResult[0].start_of_day - (9 * 3600));
             });
 
             it('should validate timezone_identifier format according to IANA standards', async () => {
@@ -720,10 +734,12 @@ describe('TimeSlotsService', () => {
 
                     expect(Array.isArray(result)).toBe(true);
                     expect(result.length).toBe(1);
-                    expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
 
-                    // In a proper implementation, these extreme timezones would show different behavior
-                    // for the same date identifier due to date line crossings
+                    // Each timezone should return its own proper timestamp
+                    const expectedTimestamp = getTimestampForDateInTimezone(2021, 5, 9, testCase.timezone);
+                    expect(result[0].start_of_day).toBe(expectedTimestamp);
+
+                    // These extreme timezones show different behavior for the same date identifier due to date line crossings
                 }
             });
         });
