@@ -8,5 +8,7 @@
   },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1"
-  }
+  },
+  "silent": true,
+  "setupFilesAfterEnv": ["<rootDir>/jest-setup.e2e.js"]
 }

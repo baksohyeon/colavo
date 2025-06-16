@@ -15,9 +15,9 @@ describe('CustomLoggerService', () => {
                     provide: CustomConfigService,
                     useValue: {
                         logger: {
-                            level: LogLevel.DEBUG,
-                            enableConsole: true,
-                            enableFile: false, // Disable file logging in tests
+                            level: LogLevel.ERROR,
+                            enableConsole: false,
+                            enableFile: false,
                             filePath: 'logs/application-%DATE%.log',
                             maxFileSize: '20m',
                             maxFiles: '14d',
@@ -41,7 +41,6 @@ describe('CustomLoggerService', () => {
             const testContext = 'TestContext';
             service.setContext(testContext);
 
-            // The context is private, so we test it indirectly by checking log behavior
             expect(service).toBeDefined();
         });
     });
@@ -52,8 +51,7 @@ describe('CustomLoggerService', () => {
             const trace = 'Error stack trace';
             const context = 'TestContext';
 
-            // Mock the winston logger
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'error');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'error').mockImplementation();
 
             service.error(message, trace, context);
 
@@ -62,13 +60,15 @@ describe('CustomLoggerService', () => {
                 trace,
                 timestamp: expect.any(String),
             });
+
+            loggerSpy.mockRestore();
         });
 
         it('should log error messages without trace', () => {
             const message = 'Test error message';
             const context = 'TestContext';
 
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'error');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'error').mockImplementation();
 
             service.error(message, undefined, context);
 
@@ -77,6 +77,8 @@ describe('CustomLoggerService', () => {
                 trace: undefined,
                 timestamp: expect.any(String),
             });
+
+            loggerSpy.mockRestore();
         });
     });
 
@@ -85,7 +87,7 @@ describe('CustomLoggerService', () => {
             const message = 'Test warning message';
             const context = 'TestContext';
 
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'warn');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'warn').mockImplementation();
 
             service.warn(message, context);
 
@@ -93,6 +95,8 @@ describe('CustomLoggerService', () => {
                 context,
                 timestamp: expect.any(String),
             });
+
+            loggerSpy.mockRestore();
         });
     });
 
@@ -101,7 +105,7 @@ describe('CustomLoggerService', () => {
             const message = 'Test info message';
             const context = 'TestContext';
 
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'info');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'info').mockImplementation();
 
             service.info(message, context);
 
@@ -109,6 +113,8 @@ describe('CustomLoggerService', () => {
                 context,
                 timestamp: expect.any(String),
             });
+
+            loggerSpy.mockRestore();
         });
     });
 
@@ -117,7 +123,7 @@ describe('CustomLoggerService', () => {
             const message = 'Test debug message';
             const context = 'TestContext';
 
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'debug');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'debug').mockImplementation();
 
             service.debug(message, context);
 
@@ -125,6 +131,8 @@ describe('CustomLoggerService', () => {
                 context,
                 timestamp: expect.any(String),
             });
+
+            loggerSpy.mockRestore();
         });
     });
 
@@ -133,7 +141,7 @@ describe('CustomLoggerService', () => {
             const message = 'Test verbose message';
             const context = 'TestContext';
 
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'verbose');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'verbose').mockImplementation();
 
             service.verbose(message, context);
 
@@ -141,6 +149,8 @@ describe('CustomLoggerService', () => {
                 context,
                 timestamp: expect.any(String),
             });
+
+            loggerSpy.mockRestore();
         });
     });
 
@@ -151,7 +161,7 @@ describe('CustomLoggerService', () => {
             const context = 'TestContext';
             const metadata = { userId: '123', action: 'test' };
 
-            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'log');
+            const loggerSpy = jest.spyOn((service as any).winstonLogger, 'log').mockImplementation();
 
             service.log(level, message, context, metadata);
 
@@ -160,25 +170,29 @@ describe('CustomLoggerService', () => {
                 timestamp: expect.any(String),
                 ...metadata,
             });
+
+            loggerSpy.mockRestore();
         });
 
         it('should handle NestJS LoggerService compatibility', () => {
             const message = 'Test compatibility message';
             const context = 'TestContext';
 
-            const infoSpy = jest.spyOn(service, 'info');
+            const infoSpy = jest.spyOn(service, 'info').mockImplementation();
 
             service.log(message, context);
 
             expect(infoSpy).toHaveBeenCalledWith(message, context);
+
+            infoSpy.mockRestore();
         });
     });
 
     describe('configuration', () => {
         it('should load configuration from ConfigService', () => {
             expect(configService.logger).toBeDefined();
-            expect(configService.logger.level).toBe(LogLevel.DEBUG);
-            expect(configService.logger.enableConsole).toBe(true);
+            expect(configService.logger.level).toBe(LogLevel.ERROR);
+            expect(configService.logger.enableConsole).toBe(false);
             expect(configService.logger.enableFile).toBe(false);
         });
     });

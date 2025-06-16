@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '@/modules/app.module';
+import { CustomLoggerService } from '@/core/logger/services/custom-logger.service';
 
 describe('Time Slots API (e2e)', () => {
     let app: INestApplication;
@@ -13,6 +14,10 @@ describe('Time Slots API (e2e)', () => {
         }).compile();
 
         app = moduleFixture.createNestApplication();
+
+        // 테스트 환경에서는 로그 출력을 비활성화
+        app.useLogger(false);
+
         app.useGlobalPipes(new ValidationPipe({
             whitelist: true,
             forbidNonWhitelisted: true,

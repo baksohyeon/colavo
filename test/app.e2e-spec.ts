@@ -14,6 +14,10 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+
+    // 테스트 환경에서는 로그 출력을 비활성화
+    app.useLogger(false);
+
     app.useGlobalPipes(new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
