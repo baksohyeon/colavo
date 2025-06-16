@@ -5,6 +5,7 @@ import { TimeSlotsModule } from './modules/time-slots.module';
 
 @Module({
   imports: [TimeSlotsModule],
+    ConfigModule,
   controllers: [AppController],
   providers: [AppService],
 })
