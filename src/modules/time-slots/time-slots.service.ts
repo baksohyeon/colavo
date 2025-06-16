@@ -16,7 +16,7 @@ export class TimeSlotsService {
      */
     async getTimeSlots(dto: GetTimeSlotsDto): Promise<IDayTimetable[]> {
         this.logger.info(
-            `Generating time slots for ${dto.start_day_identifier}, duration: ${dto.service_duration}s, days: ${dto.days || 1}, timezone: ${dto.timezone_identifier}`
+            `get time slots for ${dto.start_day_identifier}, duration: ${dto.service_duration}s, days: ${dto.days || 1}, timezone: ${dto.timezone_identifier}`
         );
 
         const {
@@ -65,11 +65,13 @@ export class TimeSlotsService {
             dayTimetables.push(dayTimetable);
 
             this.logger.debug(
-                `Generated ${dayTimetable.timeslots.length} time slots for day ${dayIndex + 1} (${this.formatDateInTimezone(currentDate, timezone_identifier)})`
+                `getTimeSlots ${dayTimetable.timeslots.length} time slots for day ${dayIndex + 1} (${this.formatDateInTimezone(currentDate, timezone_identifier)})`
             );
         }
 
-        this.logger.info(`Successfully generated time slots for ${days} day(s) in ${timezone_identifier}`);
+
+
+        this.logger.info(`Successfully getTimeSlots for ${days} day(s) in ${timezone_identifier}`);
         return dayTimetables;
     }
 
