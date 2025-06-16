@@ -7,6 +7,7 @@ import { toZonedTime, fromZonedTime, format } from 'date-fns-tz';
 
 // 주어진 과제 명세와 사진 일자 기준으로 현재 일자 지정함
 const TODAY = new Date('2021-09-10')
+TODAY.setMinutes(0, 0, 0)
 
 
 @Injectable()
@@ -18,8 +19,8 @@ export class TimeSlotsService {
      * Generate available time slots based on the request parameters
      */
     async getTimeSlots(dto: GetTimeSlotsDto): Promise<IDayTimetable[]> {
-        this.logger.info(
-            `get time slots for ${dto.start_day_identifier}, duration: ${dto.service_duration}s, days: ${dto.days || 1}, timezone: ${dto.timezone_identifier}`
+        this.logger.debug(
+            `get time slots for ${dto.start_day_identifier}, duration: ${dto.service_duration}s, days: ${dto.days || 1}, timezone: ${dto.timezone_identifier}, TODAY is ${TODAY}`
         );
 
         const {
@@ -48,9 +49,9 @@ export class TimeSlotsService {
 
         // Log data loading results
         if (is_ignore_schedule) {
-            this.logger.debug('Schedule mode: IGNORE - No events loaded for conflict checking');
+            this.logger.debug('Schedule mode: IGNORE - Skipping events.json loading, all generated timeslots will be available');
         } else {
-            this.logger.debug(`Schedule mode: CONSIDER - Loaded ${events.length} events for conflict checking`);
+            this.logger.debug(`Schedule mode: CONSIDER - Loaded ${events.length} events from events.json for conflict checking`);
         }
 
         if (is_ignore_workhour) {
@@ -96,8 +97,9 @@ export class TimeSlotsService {
         const daysOff = dayTimetables.filter(day => day.is_day_off).length;
 
         this.logger.info(
-            `Successfully generated time slots: ${totalSlots} slots across ${days} day(s) in ${timezone_identifier} ` +
-            `(${daysOff} day(s) off, schedule_ignored=${is_ignore_schedule}, workhour_ignored=${is_ignore_workhour})`
+            ` Successfully generated time slots: ${totalSlots} slots across ${days} day(s) in ${timezone_identifier} ` +
+            `(${daysOff} day(s) off, events.json ${is_ignore_schedule ? 'ignored' : 'considered'}, ` +
+            `workhurs.json ${is_ignore_workhour ? 'ignored' : 'considered'})`
         );
 
         return dayTimetables;
@@ -232,7 +234,7 @@ export class TimeSlotsService {
             this.logger.debug(`Ignoring work hours for ${date.toISOString().split('T')[0]} - treating as full working day (00:00-23:59)`);
         } else {
             if (isDayOff) {
-                this.logger.debug(`Day ${date.toISOString().split('T')[0]} is marked as day off (weekday: ${weekday})`);
+                this.logger.debug(`🛌 Day ${date.toISOString().split('T')[0]} is marked as day off (weekday: ${weekday})`);
                 return {
                     start_of_day: startOfDayUTC,
                     day_modifier: dayModifier,
@@ -245,7 +247,7 @@ export class TimeSlotsService {
                 const openTime = this.convertSecondsToTimeString(dayWorkhour.open_interval);
                 const closeTime = this.convertSecondsToTimeString(dayWorkhour.close_interval);
                 this.logger.debug(
-                    `Work hours for ${date.toISOString().split('T')[0]} (weekday: ${weekday}): ${openTime} - ${closeTime}`
+                    `💼 Work hours for ${date.toISOString().split('T')[0]} (weekday: ${weekday}): ${openTime} - ${closeTime}`
                 );
             } else {
                 this.logger.debug(`No work hours found for weekday ${weekday}, using default full day`);
@@ -261,7 +263,7 @@ export class TimeSlotsService {
         );
 
         this.logger.debug(
-            `Working hours: ${new Date(workStartSeconds * 1000).toISOString()} to ${new Date(workEndSeconds * 1000).toISOString()}`
+            `  Working hours: ${new Date(workStartSeconds * 1000).toISOString()} to ${new Date(workEndSeconds * 1000).toISOString()}`
         );
 
         // Generate all possible time slots
@@ -281,15 +283,75 @@ export class TimeSlotsService {
 
         // Debug log with human-readable timestamps
         if (availableTimeslots.length > 0) {
-            this.logger.verbose(`Available timeslots for ${this.formatDateInTimezone(date, timezoneIdentifier)}:`);
-            availableTimeslots.forEach((slot, index) => {
-                const beginTime = new Date(slot.begin_at * 1000).toISOString();
-                const endTime = new Date(slot.end_at * 1000).toISOString();
-                const durationMinutes = Math.round((slot.end_at - slot.begin_at) / 60); // Convert seconds to minutes
-                this.logger.verbose(`  ${index + 1}. ${beginTime.slice(11, 19)} → ${endTime.slice(11, 19)} (${durationMinutes}min) [${slot.begin_at}-${slot.end_at}]`);
+            this.logger.verbose(` Available timeslots for ${this.formatDateInTimezone(date, timezoneIdentifier)} (${timezoneIdentifier}):`);
+
+            // Group slots by day to handle cross-midnight scenarios
+            const slotsByLocalDate = new Map<string, ITimeslot[]>();
+
+            availableTimeslots.forEach((slot) => {
+                try {
+                    const slotStartUTC = new Date(slot.begin_at * 1000);
+                    const slotStartLocal = toZonedTime(slotStartUTC, timezoneIdentifier);
+                    const localDateKey = format(slotStartLocal, 'yyyy-MM-dd', { timeZone: timezoneIdentifier });
+
+                    if (!slotsByLocalDate.has(localDateKey)) {
+                        slotsByLocalDate.set(localDateKey, []);
+                    }
+                    slotsByLocalDate.get(localDateKey)!.push(slot);
+                } catch (error) {
+                    // Fallback to UTC grouping if timezone formatting fails
+                    const utcDate = new Date(slot.begin_at * 1000).toISOString().split('T')[0];
+                    if (!slotsByLocalDate.has(utcDate)) {
+                        slotsByLocalDate.set(utcDate, []);
+                    }
+                    slotsByLocalDate.get(utcDate)!.push(slot);
+                }
             });
+
+            let totalSlotIndex = 0;
+            slotsByLocalDate.forEach((slots, dateKey) => {
+                if (slotsByLocalDate.size > 1) {
+                    this.logger.verbose(`    ${dateKey}:`);
+                }
+
+                slots.forEach((slot) => {
+                    totalSlotIndex++;
+                    try {
+                        const slotStartUTC = new Date(slot.begin_at * 1000);
+                        const slotEndUTC = new Date(slot.end_at * 1000);
+                        const slotStartLocal = toZonedTime(slotStartUTC, timezoneIdentifier);
+                        const slotEndLocal = toZonedTime(slotEndUTC, timezoneIdentifier);
+
+                        const startTimeLocal = format(slotStartLocal, 'HH:mm', { timeZone: timezoneIdentifier });
+                        const endTimeLocal = format(slotEndLocal, 'HH:mm', { timeZone: timezoneIdentifier });
+                        const durationMinutes = Math.round((slot.end_at - slot.begin_at) / 60);
+
+                        const prefix = slotsByLocalDate.size > 1 ? '     ' : '   ';
+
+                        this.logger.verbose(
+                            `${prefix}${totalSlotIndex.toString().padStart(2)}.` +
+                            ` ${startTimeLocal} → ${endTimeLocal} (${durationMinutes}min)` +
+                            ` [UTC: ${slotStartUTC.toISOString().slice(11, 19)} → ${slotEndUTC.toISOString().slice(11, 19)}]`
+                        );
+                    } catch (error) {
+                        // Fallback to UTC display if timezone formatting fails
+                        const startTimeUTC = new Date(slot.begin_at * 1000).toISOString().slice(11, 19);
+                        const endTimeUTC = new Date(slot.end_at * 1000).toISOString().slice(11, 19);
+                        const durationMinutes = Math.round((slot.end_at - slot.begin_at) / 60);
+
+                        const prefix = slotsByLocalDate.size > 1 ? '     ' : '   ';
+                        this.logger.verbose(
+                            `${prefix}${totalSlotIndex.toString().padStart(2)}.` +
+                            ` ${startTimeUTC} → ${endTimeUTC} (${durationMinutes}min) [UTC] ` +
+                            `[${slot.begin_at}-${slot.end_at}]`
+                        );
+                    }
+                });
+            });
+
+            this.logger.verbose(`    Total: ${availableTimeslots.length} available slots`);
         } else {
-            this.logger.debug(`No available timeslots for ${this.formatDateInTimezone(date, timezoneIdentifier)}`);
+            this.logger.debug(` No available timeslots for ${this.formatDateInTimezone(date, timezoneIdentifier)}`);
         }
 
         return {
@@ -312,7 +374,7 @@ export class TimeSlotsService {
         if (isIgnoreWorkhour) {
             // When ignoring work hours, always use full day regardless of workhour data
             this.logger.debug(
-                `Work hours ignored - using full day schedule: 00:00 - 23:59 for ${timezoneIdentifier}`
+                ` Work hours IGNORED - using full day (00:00-23:59) in ${timezoneIdentifier}`
             );
             return {
                 workStartSeconds: startOfDayUTC,
@@ -323,7 +385,7 @@ export class TimeSlotsService {
         if (!dayWorkhour) {
             // No work hours data available, use full day as fallback
             this.logger.debug(
-                `No work hours data available - using full day schedule: 00:00 - 23:59 for ${timezoneIdentifier}`
+                `No work hours data - falling back to full day (00:00-23:59) in ${timezoneIdentifier}`
             );
             return {
                 workStartSeconds: startOfDayUTC,
@@ -334,6 +396,11 @@ export class TimeSlotsService {
         // Convert UTC start of day to the specified timezone
         const utcStartOfDay = new Date(startOfDayUTC * 1000);
         const zonedStartOfDay = toZonedTime(utcStartOfDay, timezoneIdentifier);
+
+        // Log the conversion process
+        this.logger.debug(
+            ` Timezone conversion: UTC ${utcStartOfDay.toISOString()} → ${timezoneIdentifier} ${zonedStartOfDay.toISOString()}`
+        );
 
         // Apply work hour intervals to the timezone-aware start of day
         const workStartInTimezone = new Date(zonedStartOfDay.getTime() + dayWorkhour.open_interval * 1000);
@@ -351,15 +418,22 @@ export class TimeSlotsService {
             const workEndFormatted = format(workEndInTimezone, 'HH:mm', { timeZone: timezoneIdentifier });
 
             this.logger.debug(
-                `Applied work hours for ${timezoneIdentifier}: ` +
-                `open_interval=${dayWorkhour.open_interval}s (${workStartFormatted}), ` +
-                `close_interval=${dayWorkhour.close_interval}s (${workEndFormatted})`
+                ` Work hours calculation for ${timezoneIdentifier}:`
+            );
+            this.logger.debug(
+                `   • Raw intervals: open=${dayWorkhour.open_interval}s (${this.convertSecondsToTimeString(dayWorkhour.open_interval)}), close=${dayWorkhour.close_interval}s (${this.convertSecondsToTimeString(dayWorkhour.close_interval)})`
+            );
+            this.logger.debug(
+                `   • Local time: ${workStartFormatted} → ${workEndFormatted} (${timezoneIdentifier})`
+            );
+            this.logger.debug(
+                `   • UTC time: ${workStartUTC.toISOString()} → ${workEndUTC.toISOString()}`
             );
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             this.logger.debug(
-                `Applied work hours for ${timezoneIdentifier} (timezone formatting failed: ${errorMessage}): ` +
-                `open_interval=${dayWorkhour.open_interval}s, close_interval=${dayWorkhour.close_interval}s`
+                ` Work hours for ${timezoneIdentifier} (formatting failed: ${errorMessage}): ` +
+                `open=${dayWorkhour.open_interval}s, close=${dayWorkhour.close_interval}s`
             );
         }
 
@@ -422,7 +496,7 @@ export class TimeSlotsService {
         }
 
         this.logger.debug(
-            `Generated ${timeslots.length} potential timeslots from ${new Date(startSeconds * 1000).toISOString()} to ${new Date(endSeconds * 1000).toISOString()}`
+            ` Generated ${timeslots.length} potential timeslots from ${new Date(startSeconds * 1000).toISOString()} to ${new Date(endSeconds * 1000).toISOString()}`
         );
 
         return timeslots;
@@ -438,8 +512,8 @@ export class TimeSlotsService {
     ): ITimeslot[] {
         if (events.length === 0) {
             this.logger.debug(
-                `No events to check for conflicts - returning all ${timeslots.length} generated timeslots ` +
-                `(schedule ${events.length === 0 ? 'ignored or empty' : 'loaded'})`
+                ` No events to check for conflicts - returning all ${timeslots.length} generated timeslots ` +
+                `(schedule ignored: events.json not loaded)`
             );
             return timeslots;
         }
@@ -448,16 +522,11 @@ export class TimeSlotsService {
         // For now, assume events are already in UTC
         const conflictingSlots = timeslots.filter(slot => {
             const hasConflict = events.some(event => this.hasTimeConflictWithTimezone(slot, event, timezoneIdentifier));
-            if (hasConflict) {
-                this.logger.debug(
-                    `Slot ${new Date(slot.begin_at * 1000).toISOString()}-${new Date(slot.end_at * 1000).toISOString()} conflicts with existing event`
-                );
-            }
             return !hasConflict;
         });
 
         this.logger.debug(
-            `Filtered ${timeslots.length - conflictingSlots.length} conflicting slots, ${conflictingSlots.length} available`
+            ` Filtered ${timeslots.length - conflictingSlots.length} conflicting slots, ${conflictingSlots.length} available`
         );
 
         return conflictingSlots;
