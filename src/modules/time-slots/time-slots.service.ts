@@ -4,7 +4,6 @@ import { IDayTimetable, IWorkhour, ITimeslot } from '@/models/interfaces';
 import { Injectable } from '@nestjs/common';
 import { IEvent } from '@/models/interfaces';
 import { toZonedTime, fromZonedTime, format } from 'date-fns-tz';
-import { startOfDay, endOfDay } from 'date-fns';
 
 // 주어진 과제 명세와 사진 일자 기준으로 현재 일자 지정함
 const TODAY = new Date('2021-09-10')
@@ -55,12 +54,12 @@ export class TimeSlotsService {
         }
 
         if (is_ignore_workhour) {
-            this.logger.debug('Work hour mode: IGNORE - Using full day (00:00-23:59) as working period');
+            this.logger.debug('Work hour mode: IGNORE - Using full day (00:00-23:59) as working period, all days treated as working days');
         } else {
             this.logger.debug(`Work hour mode: CONSIDER - Loaded ${workhours.length} work hour entries for time period calculation`);
         }
 
-        // FIXME: 과제 구현사항을 기준으로 "2021년 9월 10일로 처리, 실제 데이터에서는 현재 일자로 변경할 필요 있음
+        // FIXME: 과제 구현사항을 기준으로 2021년 9월 10일로 처리, 실제 데이터에서는 현재 일자로 변경할 필요 있음
         const todayInTimezone = toZonedTime(TODAY, timezone_identifier);
         const todayDateOnly = new Date(todayInTimezone.getFullYear(), todayInTimezone.getMonth(), todayInTimezone.getDate());
         const todayUTC = fromZonedTime(todayDateOnly, timezone_identifier);
@@ -229,7 +228,8 @@ export class TimeSlotsService {
         // Handle work hour restrictions
         if (isIgnoreWorkhour) {
             // When ignoring work hours, treat every day as a working day with full 24-hour availability
-            this.logger.debug(`Ignoring work hours for ${date.toISOString().split('T')[0]} - treating as full working day`);
+            // Skip all workhour data validation and day-off checks
+            this.logger.debug(`Ignoring work hours for ${date.toISOString().split('T')[0]} - treating as full working day (00:00-23:59)`);
         } else {
             if (isDayOff) {
                 this.logger.debug(`Day ${date.toISOString().split('T')[0]} is marked as day off (weekday: ${weekday})`);
@@ -309,10 +309,21 @@ export class TimeSlotsService {
         isIgnoreWorkhour: boolean,
         timezoneIdentifier: string
     ): { workStartSeconds: number; workEndSeconds: number } {
-        if (isIgnoreWorkhour || !dayWorkhour) {
-            // Use full day (00:00 to 23:59:59)
+        if (isIgnoreWorkhour) {
+            // When ignoring work hours, always use full day regardless of workhour data
             this.logger.debug(
-                `Using full day schedule: 00:00 - 23:59 (${isIgnoreWorkhour ? 'work hours ignored' : 'no work hours data'})`
+                `Work hours ignored - using full day schedule: 00:00 - 23:59 for ${timezoneIdentifier}`
+            );
+            return {
+                workStartSeconds: startOfDayUTC,
+                workEndSeconds: startOfDayUTC + (24 * 60 * 60) - 1,
+            };
+        }
+
+        if (!dayWorkhour) {
+            // No work hours data available, use full day as fallback
+            this.logger.debug(
+                `No work hours data available - using full day schedule: 00:00 - 23:59 for ${timezoneIdentifier}`
             );
             return {
                 workStartSeconds: startOfDayUTC,
