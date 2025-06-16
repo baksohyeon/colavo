@@ -2,7 +2,7 @@ import { GetTimeSlotsDto } from '@/modules/time-slots/dto/get-time-slots.dto';
 import { TimeSlotsService } from '@/modules/time-slots/time-slots.service';
 import { CustomLoggerService } from '@/core/logger/services/custom-logger.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 // Test constants - KST (Korea Standard Time) test dates
 const TEST_DATES = {
@@ -16,12 +16,31 @@ const TEST_DATES = {
     MAY_11_2021: '20210511',  // Tuesday
 } as const;
 
+
 // Helper function to get UTC timestamp for a date in specific timezone
 const getTimestampForDateInTimezone = (year: number, month: number, day: number, timezone: string): number => {
     const dateInTimezone = new Date(year, month - 1, day, 0, 0, 0, 0); // month is 1-indexed here
     const utcDate = fromZonedTime(dateInTimezone, timezone);
     return Math.floor(utcDate.getTime() / 1000);
 };
+
+// Expected day_modifier values relative to TODAY (2021-09-10) by timezone
+const EXPECTED_DAY_MODIFIERS = {
+    KST: {
+        '20210509': -124, // May 9, 2021 in Asia/Seoul
+        '20210510': -123, // May 10, 2021 in Asia/Seoul
+        '20210511': -122, // May 11, 2021 in Asia/Seoul
+    },
+    EST: {
+        '20210509': -123, // May 9, 2021 in America/New_York
+    },
+    UTC: {
+        '20210509': -124, // May 9, 2021 in UTC
+    },
+    JST: {
+        '20210509': -124, // May 9, 2021 in Asia/Tokyo
+    },
+} as const;
 
 // Original UTC-based timestamps (for reference)
 const TEST_TIMESTAMPS_UTC = {
@@ -116,9 +135,10 @@ describe('TimeSlotsService', () => {
             const result = await service.getTimeSlots(mockRequest);
 
             expect(result.length).toBe(3);
-            expect(result[0].day_modifier).toBe(0);
-            expect(result[1].day_modifier).toBe(1);
-            expect(result[2].day_modifier).toBe(2);
+            // Calculate expected day_modifier values relative to TODAY (2021-09-10)
+            expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210509']);     // May 9
+            expect(result[1].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210510']); // May 10
+            expect(result[2].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210511']); // May 11
         });
 
         it('should generate timeslots with correct intervals', async () => {
@@ -157,7 +177,7 @@ describe('TimeSlotsService', () => {
                 const result = await service.getTimeSlots(mockRequest);
 
                 expect(result.length).toBe(1);
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210509']);
                 expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_9_2021);
             });
 
@@ -175,7 +195,7 @@ describe('TimeSlotsService', () => {
                 const result = await service.getTimeSlots(mockRequest);
 
                 expect(result.length).toBe(1);
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210510']);
                 expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_10_2021);
             });
 
@@ -193,7 +213,7 @@ describe('TimeSlotsService', () => {
                 const result = await service.getTimeSlots(mockRequest);
 
                 expect(result.length).toBe(1);
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210511']);
                 expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_11_2021);
             });
         });
@@ -355,7 +375,7 @@ describe('TimeSlotsService', () => {
                 const result = await service.getTimeSlots(mockRequest);
 
                 expect(result.length).toBe(1); // Default days = 1
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.KST['20210509']);
             });
         });
 
@@ -417,9 +437,9 @@ describe('TimeSlotsService', () => {
                 // 2021-05-11 is Tuesday (weekday should be 3)
 
                 const requests = [
-                    { date: TEST_DATES.MAY_9_2021, expectedModifier: 0 }, // Sunday
-                    { date: TEST_DATES.MAY_10_2021, expectedModifier: 0 }, // Monday  
-                    { date: TEST_DATES.MAY_11_2021, expectedModifier: 0 }, // Tuesday
+                    { date: TEST_DATES.MAY_9_2021, expectedModifier: EXPECTED_DAY_MODIFIERS.KST['20210509'] }, // Sunday
+                    { date: TEST_DATES.MAY_10_2021, expectedModifier: EXPECTED_DAY_MODIFIERS.KST['20210510'] }, // Monday  
+                    { date: TEST_DATES.MAY_11_2021, expectedModifier: EXPECTED_DAY_MODIFIERS.KST['20210511'] }, // Tuesday
                 ];
 
                 for (const req of requests) {
@@ -455,8 +475,9 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(5);
 
+                const baseDayModifier = EXPECTED_DAY_MODIFIERS.KST['20210509'];
                 for (let i = 0; i < 5; i++) {
-                    expect(result[i].day_modifier).toBe(i);
+                    expect(result[i].day_modifier).toBe(baseDayModifier + i);
                     expect(result[i].start_of_day).toBe(TEST_TIMESTAMPS_KST.MAY_9_2021 + (i * 86400)); // Each day adds 86400 seconds
                 }
             });
@@ -491,7 +512,9 @@ describe('TimeSlotsService', () => {
                     expect(result[0]).toHaveProperty('timeslots');
                     // Each timezone should return its properly converted timestamp
                     expect(result[0].start_of_day).toBe(testCase.expectedTimestamp);
-                }
+                };
+
+
             });
 
             it('should handle UTC timezone specifically', async () => {
@@ -509,7 +532,7 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(1);
                 expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_UTC.MAY_9_2021);
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.UTC['20210509']);
                 expect(result[0].timeslots.length).toBeGreaterThan(0);
             });
 
@@ -528,7 +551,7 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(1);
                 expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_EST.MAY_9_2021);
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.EST['20210509']);
                 expect(result[0].timeslots.length).toBeGreaterThan(0);
             });
 
@@ -547,7 +570,7 @@ describe('TimeSlotsService', () => {
 
                 expect(result.length).toBe(1);
                 expect(result[0].start_of_day).toBe(TEST_TIMESTAMPS_JST.MAY_9_2021);
-                expect(result[0].day_modifier).toBe(0);
+                expect(result[0].day_modifier).toBe(EXPECTED_DAY_MODIFIERS.JST['20210509']);
                 expect(result[0].timeslots.length).toBeGreaterThan(0);
             });
 
@@ -635,7 +658,15 @@ describe('TimeSlotsService', () => {
                     const result = await service.getTimeSlots(mockRequest);
 
                     expect(result[0].start_of_day).toBe(testCase.expectedTimestamp);
-                    expect(result[0].day_modifier).toBe(0);
+                    // Use appropriate timezone-specific expected value
+                    const expectedModifier = testCase.timezone === TEST_DATES.EST_TIMEZONE
+                        ? EXPECTED_DAY_MODIFIERS.EST['20210509']
+                        : testCase.timezone === TEST_DATES.UTC_TIMEZONE
+                            ? EXPECTED_DAY_MODIFIERS.UTC['20210509']
+                            : testCase.timezone === TEST_DATES.JST_TIMEZONE
+                                ? EXPECTED_DAY_MODIFIERS.JST['20210509']
+                                : EXPECTED_DAY_MODIFIERS.KST['20210509'];
+                    expect(result[0].day_modifier).toBe(expectedModifier);
                 }
             });
 
@@ -744,4 +775,4 @@ describe('TimeSlotsService', () => {
             });
         });
     });
-}); 
+})
