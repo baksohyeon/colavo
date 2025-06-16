@@ -1,7 +1,7 @@
 /**
  * Request interface for getting available time slots
  */
-export interface GetTimeSlotsRequestDto {
+export interface IGetTimeSlotsRequestDto {
     start_day_identifier: string;
     timezone_identifier: string;
     service_duration: number;
@@ -14,17 +14,17 @@ export interface GetTimeSlotsRequestDto {
 /**
  * Response interface representing available time slots for a specific day
  */
-export interface DayTimetable {
+export interface IDayTimetable {
     start_of_day: number; // Unix timestamp in seconds
     day_modifier: number;
     is_day_off: boolean;
-    timeslots: Timeslot[];
+    timeslots: ITimeslot[];
 }
 
 /**
  * Interface representing an available time slot
  */
-export interface Timeslot {
+export interface ITimeslot {
     begin_at: number; // Unix timestamp in seconds
     end_at: number; // Unix timestamp in seconds
 }
@@ -32,7 +32,7 @@ export interface Timeslot {
 /**
  * Interface representing an existing event/booking
  */
-export interface Event {
+export interface IEvent {
     created_at: number; // Unix timestamp in seconds
     updated_at: number; // Unix timestamp in seconds
     begin_at: number; // Unix timestamp in seconds
@@ -42,7 +42,7 @@ export interface Event {
 /**
  * Interface representing work hours configuration for a specific weekday
  */
-export interface Workhour {
+export interface IWorkhour {
     is_day_off: boolean;
     open_interval: number; // Unix interval in seconds from start of day
     close_interval: number; // Unix interval in seconds from start of day
@@ -52,4 +52,4 @@ export interface Workhour {
 /**
  * Response type for the getTimeSlots API
  */
-export type GetTimeSlotsResponse = DayTimetable[]; 
+export type GetTimeSlotsResponse = IDayTimetable[]; 

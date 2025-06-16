@@ -1,13 +1,12 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
-import { ConfigModule } from './core/config/config.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { LoggerModule } from './core/logger/logger.module';
-import { LoggerMiddleware } from './core/logger/middleware/logger.middleware';
-import { LoggingInterceptor } from './core/logger/interceptors/logging.interceptor';
-import { AllExceptionsFilter } from './core/logger/filters/all-exceptions.filter';
-import { TimeSlotsModule } from 'src/modules/time-slots.module';
+import { ConfigModule } from '../core/config/config.module';
+import { AppService } from '../app.service';
+import { LoggerModule } from '../core/logger/logger.module';
+import { LoggerMiddleware } from '../core/logger/middleware/logger.middleware';
+import { LoggingInterceptor } from '../core/logger/interceptors/logging.interceptor';
+import { AllExceptionsFilter } from '../core/logger/filters/all-exceptions.filter';
+import { TimeSlotsModule } from '@/modules/time-slots/time-slots.module';
 
 @Module({
   imports: [
@@ -15,7 +14,6 @@ import { TimeSlotsModule } from 'src/modules/time-slots.module';
     LoggerModule,
     TimeSlotsModule
   ],
-  controllers: [AppController],
   providers: [
     AppService,
     {
