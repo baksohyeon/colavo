@@ -6,7 +6,7 @@ import { DataLoaderService } from '@/modules/time-slots/services/data-loader.ser
 import { WorkingHoursCalculatorService } from '@/modules/time-slots/services/working-hours-calculator.service';
 import { TimeslotGeneratorService } from '@/modules/time-slots/services/timeslot-generator.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { fromZonedTime } from 'date-fns-tz';
 
 // Test constants - KST (Korea Standard Time) test dates
 const TEST_DATES = {
@@ -21,56 +21,8 @@ const TEST_DATES = {
 } as const;
 
 
-// Helper function to get UTC timestamp for a date in specific timezone
-const getTimestampForDateInTimezone = (year: number, month: number, day: number, timezone: string): number => {
-    const dateInTimezone = new Date(year, month - 1, day, 0, 0, 0, 0); // month is 1-indexed here
-    const utcDate = fromZonedTime(dateInTimezone, timezone);
-    return Math.floor(utcDate.getTime() / 1000);
-};
-
 // Expected day_modifier values relative to TODAY (2021-09-10) by timezone
-const EXPECTED_DAY_MODIFIERS = {
-    KST: {
-        '20210509': -124, // May 9, 2021 in Asia/Seoul
-        '20210510': -123, // May 10, 2021 in Asia/Seoul
-        '20210511': -122, // May 11, 2021 in Asia/Seoul
-    },
-    EST: {
-        '20210509': -123, // May 9, 2021 in America/New_York
-    },
-    UTC: {
-        '20210509': -124, // May 9, 2021 in UTC
-    },
-    JST: {
-        '20210509': -124, // May 9, 2021 in Asia/Tokyo
-    },
-} as const;
 
-// Original UTC-based timestamps (for reference)
-const TEST_TIMESTAMPS_UTC = {
-    MAY_9_2021: Math.floor(Date.UTC(2021, 4, 9) / 1000),   // 1620518400
-    MAY_10_2021: Math.floor(Date.UTC(2021, 4, 10) / 1000), // 1620604800
-    MAY_11_2021: Math.floor(Date.UTC(2021, 4, 11) / 1000), // 1620691200
-} as const;
-
-// Timezone-aware timestamps (what the service actually returns)
-const TEST_TIMESTAMPS_KST = {
-    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.KST_TIMEZONE),   // 2021-05-09 00:00:00 KST
-    MAY_10_2021: getTimestampForDateInTimezone(2021, 5, 10, TEST_DATES.KST_TIMEZONE), // 2021-05-10 00:00:00 KST
-    MAY_11_2021: getTimestampForDateInTimezone(2021, 5, 11, TEST_DATES.KST_TIMEZONE), // 2021-05-11 00:00:00 KST
-} as const;
-
-const TEST_TIMESTAMPS_EST = {
-    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.EST_TIMEZONE),   // 2021-05-09 00:00:00 EST
-} as const;
-
-const TEST_TIMESTAMPS_JST = {
-    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.JST_TIMEZONE),   // 2021-05-09 00:00:00 JST
-} as const;
-
-const TEST_TIMESTAMPS_GMT = {
-    MAY_9_2021: getTimestampForDateInTimezone(2021, 5, 9, TEST_DATES.GMT_TIMEZONE),   // 2021-05-09 00:00:00 GMT
-} as const;
 
 describe('TimeSlotsService', () => {
     let service: TimeSlotsService;
