@@ -1,7 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { GetTimeSlotsDto } from './dto/get-time-slots.dto';
 import { IDayTimetable } from '../../models/interfaces';
-import { TimeSlotsService } from '@/modules/time-slots/time-slots.service';
+import { TimeSlotsService } from '@/modules/time-slots/services/time-slots.service';
 
 @Controller()
 export class TimeSlotsController {

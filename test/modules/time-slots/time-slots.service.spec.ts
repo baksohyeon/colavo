@@ -1,5 +1,5 @@
 import { GetTimeSlotsDto } from '@/modules/time-slots/dto/get-time-slots.dto';
-import { TimeSlotsService } from '@/modules/time-slots/time-slots.service';
+import { TimeSlotsService } from '@/modules/time-slots/services/time-slots.service';
 import { CustomLoggerService } from '@/core/logger/services/custom-logger.service';
 import { TimezoneUtil } from '@/modules/time-slots/utils/timezone.util';
 import { DataLoaderService } from '@/modules/time-slots/services/data-loader.service';

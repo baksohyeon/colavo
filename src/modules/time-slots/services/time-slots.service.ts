@@ -9,11 +9,11 @@ import {
     DEFAULT_DAYS,
     DEFAULT_TIMESLOT_INTERVAL,
     MILLISECONDS_IN_DAY
-} from './constants/time-slots.constants';
-import { TimezoneUtil } from './utils/timezone.util';
-import { DataLoaderService } from './services/data-loader.service';
-import { WorkingHoursCalculatorService } from './services/working-hours-calculator.service';
-import { TimeslotGeneratorService } from './services/timeslot-generator.service';
+} from '../constants/time-slots.constants';
+import { TimezoneUtil } from '../utils/timezone.util';
+import { DataLoaderService } from './data-loader.service';
+import { WorkingHoursCalculatorService } from './working-hours-calculator.service';
+import { TimeslotGeneratorService } from './timeslot-generator.service';
 
 
 @Injectable()
