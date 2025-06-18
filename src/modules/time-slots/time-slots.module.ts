@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TimeSlotsController } from './time-slots.controller';
-import { TimeSlotsService } from './time-slots.service';
+import { TimeSlotsService } from './services/time-slots.service';
 import { LoggerModule } from '@/core/logger/logger.module';
 import { TimezoneUtil } from './utils/timezone.util';
 import { DataLoaderService } from './services/data-loader.service';
